@@ -1,0 +1,84 @@
+{
+  "version": "V2.1-B-5class-coarse",
+  "num_classes": 5,
+  "vB_labels": {
+    "0": "Fall",
+    "1": "Walking",
+    "2": "Lying_Down",
+    "3": "Sitting",
+    "4": "Standing_Transition"
+  },
+  "vB_label_source": {
+    "0": "HEURISTIC",
+    "1": "GROUND_TRUTH",
+    "2": "GROUND_TRUTH",
+    "3": "GROUND_TRUTH",
+    "4": "GROUND_TRUTH"
+  },
+  "dense_to_vB_id": {
+    "0": 0,
+    "1": 1,
+    "2": 2,
+    "3": 3,
+    "4": 4
+  },
+  "test_loss": 0.6108470559120178,
+  "test_accuracy": 0.7402088642120361,
+  "fall_accuracy": 0.7142857142857143,
+  "fall_n": 14,
+  "ground_truth_accuracy": 0.7406914893617021,
+  "ground_truth_n": 752,
+  "n_test": 766,
+  "classification_report": {
+    "Fall": {
+      "precision": 0.5555555555555556,
+      "recall": 0.7142857142857143,
+      "f1-score": 0.625,
+      "support": 14.0
+    },
+    "Walking": {
+      "precision": 0.640495867768595,
+      "recall": 0.7311320754716981,
+      "f1-score": 0.6828193832599119,
+      "support": 212.0
+    },
+    "Lying_Down": {
+      "precision": 0.9134615384615384,
+      "recall": 0.9134615384615384,
+      "f1-score": 0.9134615384615384,
+      "support": 104.0
+    },
+    "Sitting": {
+      "precision": 0.7777777777777778,
+      "recall": 0.9015151515151515,
+      "f1-score": 0.8350877192982457,
+      "support": 132.0
+    },
+    "Standing_Transition": {
+      "precision": 0.7550200803212851,
+      "recall": 0.618421052631579,
+      "f1-score": 0.6799276672694394,
+      "support": 304.0
+    },
+    "accuracy": 0.7402088772845953,
+    "macro avg": {
+      "precision": 0.7284621639769504,
+      "recall": 0.7757631064731362,
+      "f1-score": 0.7472592616578271,
+      "support": 766.0
+    },
+    "weighted avg": {
+      "precision": 0.7451118444243567,
+      "recall": 0.7402088772845953,
+      "f1-score": 0.738168797713289,
+      "support": 766.0
+    }
+  },
+  "confusion_matrix_labels": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ]
+}
