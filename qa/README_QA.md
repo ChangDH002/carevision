@@ -215,24 +215,44 @@ py qa/run_video_qa.py ai/test_videos/fall_sample.mp4 --endpoint /detect/live --e
 ### 3.1 기대 동작
 - 영상 초반(서있는 구간): `method=heuristic:upright` 또는 `lstm`, `status=normal`
 - 낙상 구간: `consecutive_frames` 가 증가하며 `caution → suspected → emergency`
-- `_get_model()` 첫 로드 시 stdout 에 다음 중 하나가 한 번만 출력됨:
-  - `[FallDetector] Keras LSTM 모델 로드 완료: ...fall_lstm_vB_best.keras`
-  - `[FallDetector] PyTorch LSTM 모델 로드 완료: ...fall_lstm.pt (window_size=15)`
-  - `[FallDetector] LSTM 모델 파일이 없어 휴리스틱(...)만 사용합니다.`
+- 첫 detect 호출 직후 stdout 에 한 번만 다음 중 하나가 출력됨:
+  - `[FallDetector] [OK] Keras 모델 로드 완료 (V2.1-B-5class-coarse) — path=...fall_lstm_vB_best.keras, sequence_len=30, num_features=132, fall_class=0`
+  - `[FallDetector] [OK] PyTorch 모델 로드 완료 — path=...fall_lstm.pt, window_size=15, num_classes=2, fall_class=1`
+  - `[FallDetector] [WARN] LSTM 모델 파일이 없어 휴리스틱(...)만 사용합니다.`
 
 ---
 
 ## 4. 모델 파일 / 백엔드 알림 관련 메모
 
 ### 4.1 낙상 모델 파일 우선순위 (현 구현 기준)
-| 우선순위 | 파일 | 백엔드 | 비고 |
-|---|---|---|---|
-| 1 | `ai/models/fall_lstm_vB_best.keras` | Keras (BiLSTM, 5-class) | 현재 레포에는 미포함 |
-| 2 | `ai/models/fall_lstm.pt` (+ `fall_lstm_meta.json`) | PyTorch (LSTM, 2-class) | `train_fall.py` 출력물 |
-| 3 | (모두 없음) | 휴리스틱(MediaPipe Pose) + YOLO bbox 폴백 | 서버는 죽지 않음 |
+| 우선순위 | 파일 | 백엔드 | 입력 | 출력 | 비고 |
+|---|---|---|---|---|---|
+| 1 | `ai/models/fall_lstm_vB_best.keras` (+ `labels_vB.json`) | Keras BiLSTM(128→64) | sequence_len=30, num_features=132 | 5-class softmax, **Fall = class 0** | V2.1-B coarse, vB |
+| 2 | `ai/models/fall_lstm.pt` (+ `fall_lstm_meta.json`) | PyTorch LSTM(64×2) | window_size=15, input_dim=132 | 2-class softmax, **Fall = class 1** | `train_fall.py` 출력물 |
+| 3 | (모두 없음) | 휴리스틱(MediaPipe Pose) + YOLO bbox 폴백 | — | — | 서버는 죽지 않음 |
 
-`_get_model()` 은 위 순서대로 시도하며, **모두 실패해도 서버는 정상 동작** 하고
-경고 로그는 한 번만 출력된다.
+`_get_model()` 은 위 순서대로 시도하며, **모두 실패해도 서버는 정상 동작** 하고 모든
+시도 결과는 stdout 에 한 번만 기록된다. 예시 로그:
+
+```
+[FallDetector] LSTM 모델 로드 시작 — 우선순위: vB Keras > PT > 휴리스틱
+[FallDetector] [OK] Keras 모델 로드 완료 (V2.1-B-5class-coarse) — path=...fall_lstm_vB_best.keras, sequence_len=30, num_features=132, fall_class=0
+```
+
+또는 vB Keras 실패 시:
+```
+[FallDetector] [FAIL] Keras (vB) 로드 실패 — PT 폴백 시도: <에러 메시지>
+[FallDetector] [OK] PyTorch 모델 로드 완료 — path=...fall_lstm.pt, window_size=15, num_classes=2, fall_class=1
+```
+
+또는 모델 모두 부재 시:
+```
+[FallDetector] [SKIP] vB Keras 미발견: ...fall_lstm_vB_best.keras
+[FallDetector] [SKIP] PT 미발견: ...fall_lstm.pt
+[FallDetector] [WARN] LSTM 모델 파일이 없어 휴리스틱(MediaPipe Pose + YOLO bbox)만 사용합니다.
+```
+
+> 운영/QA 시 stdout 첫 몇 줄만 확인하면 어떤 백엔드가 활성화됐는지 즉시 알 수 있다.
 
 ### 4.2 AI 서버 → 백엔드 알림 케이스
 - AI 가 보내는 `detection_type` 은 `"FALL"` (대문자, Prisma `DetectionType` enum 과 일치).
@@ -248,9 +268,45 @@ py qa/run_video_qa.py ai/test_videos/fall_sample.mp4 --endpoint /detect/live --e
 
 ---
 
-## 5. 변경 요약 (2026-05-02 QA 1차 후속)
-- `requirements.txt` — `httpx`, `python-multipart` 등록 확인.
-- `ai/pipelines/fall_detector.py` — `.keras → .pt → 휴리스틱` 순으로 안전하게 폴백.
-  모델 파일이 없어도 서버가 죽지 않으며, 경고 로그는 한 번만 출력.
-- `backend/src/controllers/detectionController.js` — FALL/fall 대소문자 비교 정규화.
-- `qa/README_QA.md` — 본 문서. base64/영상 수동 QA 절차 추가.
+## 5. 알려진 이슈
+
+### 5.1 `ai/training/fall_lstm_vB/` 의 `config.py` 누락
+세 스크립트(`03_build_dataset_vB.py`, `04_train_lstm_vB.py`, `05_train_lstm_vB_aug.py`)
+모두 `from config import (...)` 를 시도하지만 **`config.py` 파일이 어떤 위치에도
+존재하지 않는다.** 또한 `sys.path` 설정이 일관되지 않다:
+
+| 스크립트 | `sys.path.insert` 대상 | 기대 위치 |
+|---|---|---|
+| `03_build_dataset_vB.py` | `os.path.dirname(__file__)` | `ai/training/fall_lstm_vB/config.py` |
+| `04_train_lstm_vB.py` | `os.path.dirname(__file__)` | `ai/training/fall_lstm_vB/config.py` |
+| `05_train_lstm_vB_aug.py` | `os.path.dirname(os.path.dirname(__file__))` | `ai/training/config.py` |
+
+→ 결과: 세 스크립트 모두 `ModuleNotFoundError: No module named 'config'` 로
+실패. 학습 재현이 필요하면 `config.py` 를 복원해야 한다. 다만 **런타임 추론 경로
+(`ai/pipelines/fall_detector.py`) 는 이 스크립트들에 의존하지 않으므로 QA/서버
+동작에는 영향 없음.**
+
+필요한 심볼 (세 스크립트 import 합집합):
+`FALL_KP_DIR, NORMAL_VIDEO_KP_DIR, DATASET_DIR, MODEL_DIR, LOG_DIR,
+SEQUENCE_LEN, STRIDE, NUM_FEATURES, BATCH_SIZE, EPOCHS, LEARNING_RATE,
+LSTM_UNITS, DROPOUT, PATIENCE, RANDOM_SEED, TRAIN_RATIO, VAL_RATIO, TEST_RATIO`
+
+`labels_vB.json` 기준 고정값: `SEQUENCE_LEN=30, STRIDE=15, NUM_FEATURES=132`.
+
+---
+
+## 6. 변경 이력
+
+### 2026-05-02 QA 2차 (vB 모델 추가 후속)
+- `ai/pipelines/fall_detector.py`
+  - 로드 우선순위 vB Keras 명시: 1) `fall_lstm_vB_best.keras` 2) `fall_lstm.pt` 3) 휴리스틱
+  - `labels_vB.json` 의 `version/sequence_len/num_features` 를 로드 시 함께 출력
+  - `[OK]/[FAIL]/[SKIP]/[WARN]` 태그로 stdout 메시지 명확화
+  - 로드 1회 시도, 실패 캐시 (재시도 없음)
+- `qa/README_QA.md` — 모델 우선순위 표/로그 예시 갱신, vB 학습 스크립트 config 누락 이슈 명시
+
+### 2026-05-02 QA 1차
+- `requirements.txt` — `httpx`, `python-multipart` 등록 확인
+- `ai/pipelines/fall_detector.py` — `.keras → .pt → 휴리스틱` 순 안전 폴백 도입
+- `backend/src/controllers/detectionController.js` — FALL/fall 대소문자 비교 정규화
+- `qa/README_QA.md` — base64/영상 수동 QA 절차 추가
