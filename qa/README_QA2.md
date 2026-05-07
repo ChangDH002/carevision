@@ -554,20 +554,9 @@ fall_emergency
 
 ---
 
-## 15. Git 커밋 예시
-
-QA 2차 수정 사항을 반영한 뒤 다음과 같이 커밋할 수 있다.
-
-```cmd
-git status
-git add ai/pipelines/fall_detector.py ai/api/routes.py frontend/src/camera/CameraPage.jsx qa/README_QA.md qa/WEB_RUNTIME_QA.md
-git commit -m "fix fall detection QA2 state transition logic"
-git push origin main
-```
-
 ---
 
-## 16. 한 줄 요약
+## 15. 한 줄 요약
 
 ```text
 QA 2차에서는 정상 눕기와 정적 누움 상태를 낙상으로 오탐하지 않도록, 
