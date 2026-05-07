@@ -1,56 +1,61 @@
 import { useState } from 'react';
 import { store, useStore } from '../store';
+import { CV, SHADOW } from '../styles/cv';
 
 const CATEGORIES = [
-    { id: 'all', label: '전체' },
-    { id: 'emergency', label: '응급' },
+    { id: 'all',        label: '전체' },
+    { id: 'emergency',  label: '응급' },
     { id: 'medication', label: '복약' },
-    { id: 'system', label: '시스템' },
+    { id: 'system',     label: '시스템' },
 ];
 
 const TYPE_META = {
     FALL: {
         category: 'emergency',
-        title: '낙상 의심 감지됨',
-        iconBg: 'bg-[#FFE5DB]',
-        icon: (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L2 22h20L12 2z" stroke="#FF6B3D" strokeWidth="2" strokeLinejoin="round" fill="#FFE5DB"/>
-                <line x1="12" y1="10" x2="12" y2="15" stroke="#FF6B3D" strokeWidth="2" strokeLinecap="round"/>
-                <circle cx="12" cy="18" r="1" fill="#FF6B3D"/>
+        title: '낙상 의심 감지',
+        bg: CV.dangerTint,
+        color: CV.dangerDeep,
+        icon: (color) => (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L2 22h20L12 2z" stroke={color} strokeWidth="2" strokeLinejoin="round"/>
+                <line x1="12" y1="10" x2="12" y2="15" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+                <circle cx="12" cy="18" r="1" fill={color}/>
             </svg>
         ),
     },
     MEDICATION: {
         category: 'medication',
-        title: '복약 완료 확인',
-        iconBg: 'bg-[#FFE5DB]',
-        icon: (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <rect x="2" y="8" width="20" height="8" rx="4" stroke="#FF6B3D" strokeWidth="2"/>
-                <line x1="12" y1="8" x2="12" y2="16" stroke="#FF6B3D" strokeWidth="2"/>
+        title: '복약 알림',
+        bg: CV.primaryTint,
+        color: CV.primary,
+        icon: (color) => (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <rect x="2" y="8" width="20" height="8" rx="4" stroke={color} strokeWidth="2"/>
+                <line x1="12" y1="8" x2="12" y2="16" stroke={color} strokeWidth="2"/>
             </svg>
         ),
     },
     NORMAL: {
         category: 'system',
         title: '정상 동작',
-        iconBg: 'bg-[#E8F8F0]',
-        icon: (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="9" stroke="#10B981" strokeWidth="2" fill="#E8F8F0"/>
-                <path d="M8 12l3 3 5-6" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        bg: CV.successTint,
+        color: CV.successText,
+        icon: (color) => (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2"/>
+                <path d="M8 12l3 3 5-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
         ),
     },
     SYSTEM: {
         category: 'system',
         title: '시스템',
-        iconBg: 'bg-[#EEF4FF]',
-        icon: (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <rect x="3" y="5" width="18" height="12" rx="2" stroke="#4F7CFF" strokeWidth="2" fill="#EEF4FF"/>
-                <circle cx="18" cy="11" r="1" fill="#4F7CFF"/>
+        bg: CV.primaryTintSoft,
+        color: CV.primaryText,
+        icon: (color) => (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="5" width="18" height="12" rx="2" stroke={color} strokeWidth="2"/>
+                <circle cx="18" cy="11" r="1" fill={color}/>
             </svg>
         ),
     },
@@ -72,7 +77,6 @@ export default function NotificationsPage({ onOpenEmergency }) {
     const items = useStore((s) => s.notifications);
 
     const markAll = () => store.markAllRead();
-    const markOne = (id) => store.markRead(id);
 
     const normalizedType = (n) => {
         const t = (n.type || 'NORMAL').toUpperCase();
@@ -93,105 +97,173 @@ export default function NotificationsPage({ onOpenEmergency }) {
         return n.message || '알림';
     };
 
+    const titleFor = (n, t) => {
+        if (t === 'FALL') return '낙상 의심 감지';
+        if (t === 'MEDICATION') return n.message?.includes('완료') ? '복약 완료 확인' : '복약 누락 알림';
+        return TYPE_META[t].title;
+    };
+
     return (
         <div className="min-h-screen">
-            {/* 헤더 */}
-            <div className="bg-[#FF6B3D] text-white px-5 pt-6 pb-7 rounded-b-3xl">
-                <div className="flex justify-between items-center">
-                    <h1 className="text-2xl font-bold m-0">알림</h1>
-                    <button
-                        onClick={markAll}
-                        className="bg-transparent border-none text-white text-sm font-semibold cursor-pointer"
-                    >
-                        모두 읽음
-                    </button>
+            {/* Hero (ink/dark) */}
+            <div
+                className="text-white relative overflow-hidden"
+                style={{
+                    background: CV.inkGrad,
+                    padding: '20px 22px 28px',
+                    borderRadius: '0 0 32px 32px',
+                }}
+            >
+                <span className="absolute pointer-events-none" style={{ left: -60, bottom: -80, width: 280, height: 280, borderRadius: '50%', background: 'rgba(255,255,255,.04)' }} />
+                <span className="absolute pointer-events-none" style={{ right: -40, top: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,.05)' }} />
+
+                <div className="relative">
+                    <div className="flex justify-between items-end mt-3">
+                        <h1 className="m-0 font-extrabold" style={{ fontSize: 24, letterSpacing: '-0.01em' }}>알림</h1>
+                        <button
+                            onClick={markAll}
+                            className="cursor-pointer border-none bg-transparent font-semibold"
+                            style={{ color: 'rgba(255,255,255,.85)', fontSize: 12, fontFamily: 'inherit' }}
+                        >
+                            모두 읽음 처리
+                        </button>
+                    </div>
+
+                    {/* category chips */}
+                    <div className="mt-4 flex gap-1.5 overflow-x-auto scrollbar-hide">
+                        {CATEGORIES.map((c) => {
+                            const on = cat === c.id;
+                            return (
+                                <button
+                                    key={c.id}
+                                    onClick={() => setCat(c.id)}
+                                    className="cursor-pointer border-none font-bold shrink-0"
+                                    style={{
+                                        padding: '6px 14px',
+                                        borderRadius: 9999,
+                                        background: on ? '#fff' : 'rgba(255,255,255,.12)',
+                                        color: on ? CV.ink : '#fff',
+                                        fontSize: 12,
+                                        fontFamily: 'inherit',
+                                        transition: 'background-color 0.15s ease',
+                                    }}
+                                >
+                                    {c.label}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
 
-            {/* 카테고리 탭 */}
-            <div className="px-4 -mt-4 mb-3">
-                <div className="bg-white rounded-full p-1 shadow-sm flex">
-                    {CATEGORIES.map((c) => (
-                        <button
-                            key={c.id}
-                            onClick={() => setCat(c.id)}
-                            className={`flex-1 py-1.5 rounded-full text-xs font-semibold border-none cursor-pointer transition-colors ${
-                                cat === c.id ? 'bg-[#FF6B3D] text-white' : 'bg-transparent text-gray-500'
-                            }`}
-                        >
-                            {c.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* 리스트 */}
-            <div className="px-4 flex flex-col">
-                {filtered.length === 0 && (
-                    <p className="text-center text-sm text-gray-400 py-10">알림이 없습니다</p>
-                )}
-                {filtered.map((n) => {
-                    const t = normalizedType(n);
-                    const meta = TYPE_META[t];
-                    const title = t === 'FALL'
-                        ? '낙상 의심 감지됨'
-                        : t === 'MEDICATION'
-                            ? (n.message?.includes('완료') ? '복약 완료 확인' : '복약 누락 알림')
-                            : meta.title;
-
-                    return (
-                        <button
-                            key={n.id}
-                            onClick={() => { markOne(n.id); }}
-                            className="text-left bg-transparent border-none cursor-pointer py-3 border-b border-gray-100 last:border-0 flex gap-3"
-                        >
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${meta.iconBg}`}>
-                                {meta.icon}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="flex justify-between items-start gap-2">
-                                    <p className="text-sm font-bold text-gray-900 m-0">{title}</p>
-                                    {!n.isRead && (
-                                        <span className="w-2 h-2 rounded-full bg-[#FF6B3D] mt-1.5 shrink-0" />
-                                    )}
-                                </div>
-                                <p className="text-xs text-gray-600 m-0 mt-0.5 leading-snug">
-                                    {formatMessage(n)}
-                                </p>
-                                <p className="text-[11px] text-gray-400 m-0 mt-1">{timeAgo(n.sentAt)}</p>
-                            </div>
-                        </button>
-                    );
-                })}
-            </div>
-
-            {/* 응급 알림 CTA */}
+            {/* Emergency CTA */}
             {unreadEmergency && (
-                <div className="px-4 my-4">
-                    <div className="bg-[#FFE5DB] rounded-2xl p-4 border border-[#FFCDB5]">
-                        <div className="flex items-center gap-2 mb-1">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                                <path d="M12 2L2 22h20L12 2z" stroke="#E8552B" strokeWidth="2" strokeLinejoin="round"/>
-                                <line x1="12" y1="10" x2="12" y2="15" stroke="#E8552B" strokeWidth="2" strokeLinecap="round"/>
-                                <circle cx="12" cy="18" r="1" fill="#E8552B"/>
+                <div className="px-4 mt-4">
+                    <div
+                        className="flex items-center gap-3.5"
+                        style={{
+                            background: CV.dangerGrad,
+                            color: '#fff',
+                            borderRadius: 20,
+                            padding: 14,
+                            boxShadow: '0 12px 28px rgba(220,38,38,.18)',
+                        }}
+                    >
+                        <div
+                            className="flex items-center justify-center shrink-0"
+                            style={{
+                                width: 44, height: 44, borderRadius: 14,
+                                background: 'rgba(255,255,255,.18)',
+                            }}
+                        >
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 2L2 22h20L12 2z" stroke="white" strokeWidth="2" strokeLinejoin="round"/>
+                                <line x1="12" y1="10" x2="12" y2="15" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                                <circle cx="12" cy="18" r="1" fill="white"/>
                             </svg>
-                            <p className="text-sm font-bold text-[#C73F10] m-0">응급 알림 확인 필요</p>
                         </div>
-                        <p className="text-xs text-[#C73F10]/80 mb-3">낙상 감지 후 3분 경과. 지금 확인하세요.</p>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => onOpenEmergency?.(unreadEmergency)}
-                                className="flex-1 bg-[#FF6B3D] text-white rounded-xl py-2.5 font-bold text-sm border-none cursor-pointer"
-                            >
-                                영상 확인
-                            </button>
-                            <button className="flex-1 bg-white text-[#FF6B3D] rounded-xl py-2.5 font-bold text-sm border border-[#FF6B3D] cursor-pointer">
-                                119 통화
-                            </button>
+                        <div className="flex-1 min-w-0">
+                            <p className="m-0 font-extrabold" style={{ fontSize: 14 }}>응급 알림 확인 필요</p>
+                            <p className="m-0 mt-0.5 opacity-90" style={{ fontSize: 11 }}>낙상 감지 후 3분 경과. 지금 확인하세요.</p>
                         </div>
+                        <button
+                            onClick={() => onOpenEmergency?.(unreadEmergency)}
+                            className="cursor-pointer border-none font-bold shrink-0"
+                            style={{
+                                background: '#fff',
+                                color: CV.dangerDeep,
+                                borderRadius: 9999,
+                                padding: '8px 14px',
+                                fontSize: 12,
+                                fontFamily: 'inherit',
+                            }}
+                        >
+                            확인
+                        </button>
                     </div>
                 </div>
             )}
+
+            {/* list card */}
+            <div className="px-4 mt-4">
+                <div
+                    style={{
+                        background: '#fff',
+                        borderRadius: 20,
+                        padding: 6,
+                        boxShadow: SHADOW.card,
+                        border: '1px solid rgba(15,23,42,.04)',
+                    }}
+                >
+                    {filtered.length === 0 && (
+                        <p className="text-center py-10 m-0" style={{ color: CV.fgFaint, fontSize: 13 }}>알림이 없습니다</p>
+                    )}
+                    {filtered.map((n, i, arr) => {
+                        const t = normalizedType(n);
+                        const meta = TYPE_META[t];
+                        return (
+                            <button
+                                key={n.id}
+                                onClick={() => {
+                                    store.markRead(n.id);
+                                    if (t === 'FALL') onOpenEmergency?.(n);
+                                }}
+                                className="w-full text-left bg-transparent border-none cursor-pointer flex gap-3"
+                                style={{
+                                    padding: '14px 12px',
+                                    borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${CV.divider}`,
+                                    fontFamily: 'inherit',
+                                }}
+                            >
+                                <div
+                                    className="flex items-center justify-center shrink-0"
+                                    style={{
+                                        width: 44, height: 44, borderRadius: 14,
+                                        background: meta.bg, color: meta.color,
+                                    }}
+                                >
+                                    {meta.icon(meta.color)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-start gap-2">
+                                        <p className="m-0 font-bold" style={{ fontSize: 14, color: CV.fg }}>{titleFor(n, t)}</p>
+                                        {!n.isRead && (
+                                            <span
+                                                className="shrink-0"
+                                                style={{ width: 8, height: 8, borderRadius: '50%', background: CV.primary, marginTop: 6 }}
+                                            />
+                                        )}
+                                    </div>
+                                    <p className="m-0 mt-0.5" style={{ fontSize: 12, color: CV.fgMuted, lineHeight: 1.45 }}>
+                                        {formatMessage(n)}
+                                    </p>
+                                    <p className="m-0 mt-1.5" style={{ fontSize: 11, color: CV.fgFaint }}>{timeAgo(n.sentAt)}</p>
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
         </div>
     );
 }

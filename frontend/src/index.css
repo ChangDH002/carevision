@@ -1,13 +1,79 @@
 @import "tailwindcss";
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css");
+
+/* ============================================================================
+ * CareVision v2 design tokens
+ * ========================================================================== */
+:root {
+    --cv-primary:           #2F6BFF;
+    --cv-primary-press:     #1E4FE0;
+    --cv-primary-tint:      #DBEAFE;
+    --cv-primary-tint-soft: #EFF4FF;
+    --cv-primary-text:      #1E40AF;
+    --cv-primary-grad-from: #3B7CFF;
+    --cv-primary-grad-to:   #1E4FE0;
+    --cv-primary-grad:      linear-gradient(180deg, #3B7CFF 0%, #1E4FE0 100%);
+    --cv-primary-grad-hero: linear-gradient(160deg, #3B7CFF 0%, #1E4FE0 100%);
+
+    --cv-ink:               #0F172A;
+    --cv-ink-soft:          #1E293B;
+    --cv-ink-grad:          linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+
+    --cv-accent:            #FFD24A;
+
+    --cv-danger:            #EF4444;
+    --cv-danger-deep:       #DC2626;
+    --cv-danger-tint:       #FEE2E2;
+    --cv-danger-grad:       linear-gradient(180deg, #F87171 0%, #DC2626 100%);
+
+    --cv-success:           #22C55E;
+    --cv-success-tint:      #DCFCE7;
+    --cv-success-text:      #15803D;
+
+    --cv-warn:              #F59E0B;
+    --cv-warn-tint:         #FEF3C7;
+    --cv-warn-text:         #B45309;
+
+    --cv-bg:                #F4F5F9;
+    --cv-surface:           #FFFFFF;
+    --cv-surface-input:     #F8FAFC;
+    --cv-camera-bg:         #0F172A;
+
+    --cv-fg:                #0F172A;
+    --cv-fg-muted:          #64748B;
+    --cv-fg-faint:          #94A3B8;
+
+    --cv-divider:           #EEF2F7;
+    --cv-border:            #E2E8F0;
+
+    --cv-shadow-card:       0 12px 28px rgba(30, 79, 224, .10), 0 2px 6px rgba(15, 23, 42, .04);
+    --cv-shadow-fab:        0 8px 20px rgba(47, 107, 255, .40);
+    --cv-shadow-nav-up:     0 -8px 24px rgba(15, 23, 42, .06);
+}
+
+html,
+body,
+#root {
+    background: var(--cv-bg);
+}
+
+body {
+    font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+                 system-ui, "Segoe UI", Roboto, "Helvetica Neue",
+                 "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    color: var(--cv-fg);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
 
 @keyframes slideDown {
     from { transform: translateY(-100%); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    to   { transform: translateY(0);     opacity: 1; }
 }
 
 @keyframes slideUp {
     from { transform: translateY(100%); }
-    to { transform: translateY(0); }
+    to   { transform: translateY(0); }
 }
 
 .scrollbar-hide::-webkit-scrollbar { display: none; }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api/client';
+import { CV, SHADOW } from '../styles/cv';
 
 export default function LoginPage({ onLogin }) {
     const [mode, setMode] = useState('login');
@@ -31,53 +32,83 @@ export default function LoginPage({ onLogin }) {
         }
     };
 
+    const inputStyle = {
+        padding: '15px 16px',
+        border: `1.5px solid ${CV.border}`,
+        borderRadius: 16,
+        fontSize: 14,
+        outline: 'none',
+        width: '100%',
+        background: CV.surfaceInput,
+        boxSizing: 'border-box',
+        fontFamily: 'inherit',
+    };
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-[#FF8A65] to-[#FF6B3D] flex items-center justify-center p-4 sm:p-6">
-            <div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl sm:p-10">
+        <div
+            className="min-h-screen flex flex-col justify-end relative overflow-hidden max-w-[480px] mx-auto"
+            style={{ background: CV.primaryGradHero }}
+        >
+            {/* decorative orbs */}
+            <span className="absolute pointer-events-none" style={{ left: -80, top: 60, width: 240, height: 240, borderRadius: '50%', background: 'rgba(255,255,255,.08)' }} />
+            <span className="absolute pointer-events-none" style={{ right: -60, top: 200, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,.06)' }} />
 
-                {/* 로고 */}
-                <div className="text-center mb-6">
-                    <div className="w-16 h-16 rounded-2xl bg-[#FFE5DB] mx-auto flex items-center justify-center">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                            <path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-9.5z"
-                                  stroke="#FF6B3D" strokeWidth="2" strokeLinejoin="round" fill="#FF6B3D" fillOpacity="0.15"/>
-                        </svg>
-                    </div>
-                    <h1 className="text-2xl font-bold text-[#FF6B3D] mt-3 mb-1 sm:text-3xl">CareVision</h1>
-                    <p className="text-xs text-gray-500 sm:text-sm">보호자 모니터링</p>
+            {/* top brand */}
+            <div className="flex-1 flex flex-col justify-center items-center text-white relative">
+                <div
+                    className="flex items-center justify-center mb-4"
+                    style={{
+                        width: 88, height: 88, borderRadius: 28,
+                        background: 'rgba(255,255,255,.15)',
+                        backdropFilter: 'blur(8px)',
+                    }}
+                >
+                    <svg width="44" height="44" viewBox="0 0 24 24" fill="none">
+                        <path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-9.5z"
+                              stroke="#fff" strokeWidth="2.4" strokeLinejoin="round" fill="rgba(255,255,255,.2)"/>
+                    </svg>
+                </div>
+                <h1 className="font-extrabold m-0" style={{ fontSize: 32, letterSpacing: '-0.02em' }}>CareVision</h1>
+                <p className="m-0 opacity-90 mt-1" style={{ fontSize: 13 }}>가족의 안전을 지키는 가장 가까운 눈</p>
+            </div>
+
+            {/* sheet */}
+            <div
+                className="relative z-10"
+                style={{
+                    background: '#fff',
+                    borderRadius: '32px 32px 0 0',
+                    padding: '28px 24px 36px',
+                }}
+            >
+                {/* segmented tabs */}
+                <div
+                    className="flex p-1 mb-4"
+                    style={{ borderRadius: 9999, background: CV.divider }}
+                >
+                    {['login', 'register'].map((m) => (
+                        <button
+                            type="button"
+                            key={m}
+                            onClick={() => { setMode(m); setError(''); }}
+                            className="flex-1 cursor-pointer font-bold border-none"
+                            style={{
+                                padding: '10px 0', borderRadius: 9999,
+                                background: mode === m ? CV.primary : 'transparent',
+                                color: mode === m ? '#fff' : CV.fgMuted,
+                                fontSize: 14, fontFamily: 'inherit',
+                                transition: 'background-color 0.15s ease',
+                            }}
+                        >
+                            {m === 'login' ? '로그인' : '회원가입'}
+                        </button>
+                    ))}
                 </div>
 
-                {/* 탭 */}
-                <div className="flex rounded-full bg-gray-100 p-1 mb-6">
-                    <button
-                        type="button"
-                        className={`flex-1 py-2.5 text-sm font-semibold rounded-full transition-colors min-h-[40px] border-none cursor-pointer ${
-                            mode === 'login'
-                                ? 'bg-[#FF6B3D] text-white'
-                                : 'bg-transparent text-gray-500'
-                        }`}
-                        onClick={() => setMode('login')}
-                    >
-                        로그인
-                    </button>
-                    <button
-                        type="button"
-                        className={`flex-1 py-2.5 text-sm font-semibold rounded-full transition-colors min-h-[40px] border-none cursor-pointer ${
-                            mode === 'register'
-                                ? 'bg-[#FF6B3D] text-white'
-                                : 'bg-transparent text-gray-500'
-                        }`}
-                        onClick={() => setMode('register')}
-                    >
-                        회원가입
-                    </button>
-                </div>
-
-                {/* 폼 */}
-                <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+                <form onSubmit={handleSubmit} className="flex flex-col gap-2.5">
                     {mode === 'register' && (
                         <input
-                            className="px-4 py-3 border border-gray-200 rounded-xl text-base outline-none w-full transition-colors focus:border-[#FF6B3D] focus:ring-2 focus:ring-[#FFE5DB] appearance-none bg-gray-50"
+                            style={inputStyle}
                             name="name"
                             placeholder="이름"
                             value={form.name}
@@ -87,7 +118,7 @@ export default function LoginPage({ onLogin }) {
                         />
                     )}
                     <input
-                        className="px-4 py-3 border border-gray-200 rounded-xl text-base outline-none w-full transition-colors focus:border-[#FF6B3D] focus:ring-2 focus:ring-[#FFE5DB] appearance-none bg-gray-50"
+                        style={inputStyle}
                         name="email"
                         type="email"
                         placeholder="이메일"
@@ -98,7 +129,7 @@ export default function LoginPage({ onLogin }) {
                         required
                     />
                     <input
-                        className="px-4 py-3 border border-gray-200 rounded-xl text-base outline-none w-full transition-colors focus:border-[#FF6B3D] focus:ring-2 focus:ring-[#FFE5DB] appearance-none bg-gray-50"
+                        style={inputStyle}
                         name="password"
                         type="password"
                         placeholder="비밀번호"
@@ -109,15 +140,31 @@ export default function LoginPage({ onLogin }) {
                     />
 
                     {error && (
-                        <p className={`text-xs text-center ${error.includes('완료') ? 'text-[#10B981]' : 'text-red-600'}`}>
+                        <p
+                            className="text-center m-0 mt-1"
+                            style={{
+                                fontSize: 12,
+                                color: error.includes('완료') ? CV.successText : CV.dangerDeep,
+                            }}
+                        >
                             {error}
                         </p>
                     )}
 
                     <button
-                        className="mt-2 py-3.5 bg-[#FF6B3D] text-white rounded-xl text-sm font-bold w-full min-h-[48px] transition-colors disabled:opacity-60 disabled:cursor-not-allowed active:bg-[#E8552B] appearance-none border-none cursor-pointer"
                         type="submit"
                         disabled={loading}
+                        className="w-full cursor-pointer font-bold border-none mt-2"
+                        style={{
+                            padding: '15px 16px',
+                            background: loading ? '#94A3B8' : CV.primaryGrad,
+                            color: '#fff',
+                            borderRadius: 16,
+                            fontSize: 15,
+                            fontFamily: 'inherit',
+                            boxShadow: loading ? 'none' : SHADOW.cta,
+                            opacity: loading ? 0.6 : 1,
+                        }}
                     >
                         {loading ? '처리 중...' : mode === 'login' ? '로그인' : '회원가입'}
                     </button>

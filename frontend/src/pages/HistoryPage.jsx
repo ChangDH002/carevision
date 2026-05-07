@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../store';
+import { CV, SHADOW } from '../styles/cv';
 
 function EmergencyDetail({ detection, patient, onBack, onOpenCamera }) {
     const startAt = detection?.detectedAt || detection?.sentAt || new Date().toISOString();
@@ -17,36 +18,79 @@ function EmergencyDetail({ detection, patient, onBack, onOpenCamera }) {
 
     return (
         <div className="min-h-screen">
-            {/* 빨간 헤더 */}
-            <div className="bg-[#E53935] text-white px-5 pt-6 pb-7 rounded-b-3xl">
-                <button
-                    onClick={onBack}
-                    className="bg-transparent border-none text-white/90 text-xs font-semibold p-0 mb-2 cursor-pointer"
-                >
-                    ← 이력으로
-                </button>
-                <p className="text-xs opacity-90 m-0">응급 감지</p>
-                <h1 className="text-2xl font-bold m-0 mt-1">낙상 의심 상황</h1>
-                <p className="text-xs opacity-90 m-0 mt-1">위험도 3/5 · 발생 {4 + min}분 {37 + sec}초 경과</p>
-                {/* 위험도 바 */}
-                <div className="flex gap-1 mt-2">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                        <span
-                            key={i}
-                            className={`flex-1 h-1.5 rounded-full ${i <= 3 ? 'bg-white' : 'bg-white/30'}`}
-                        />
-                    ))}
+            {/* Danger hero */}
+            <div
+                className="text-white relative overflow-hidden"
+                style={{
+                    background: CV.dangerGrad,
+                    padding: '20px 22px 28px',
+                    borderRadius: '0 0 32px 32px',
+                }}
+            >
+                <span className="absolute pointer-events-none" style={{ left: -60, bottom: -80, width: 280, height: 280, borderRadius: '50%', background: 'rgba(255,255,255,.06)' }} />
+                <span className="absolute pointer-events-none" style={{ right: -40, top: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,.07)' }} />
+
+                <div className="relative">
+                    <button
+                        onClick={onBack}
+                        className="cursor-pointer border-none flex items-center justify-center mt-3"
+                        style={{
+                            background: 'rgba(255,255,255,.18)',
+                            color: '#fff',
+                            width: 40, height: 40, borderRadius: '50%',
+                        }}
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                    </button>
+                    <p className="m-0 mt-4 font-semibold opacity-90" style={{ fontSize: 13 }}>응급 감지</p>
+                    <h1 className="m-0 mt-1 font-extrabold" style={{ fontSize: 26, letterSpacing: '-0.02em' }}>낙상 의심 상황</h1>
+                    <p className="m-0 mt-1.5 opacity-90" style={{ fontSize: 12 }}>
+                        위험도 3/5 · 발생 {4 + min}분 {37 + sec}초 경과
+                    </p>
+                    <div className="flex gap-1 mt-3">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                            <span
+                                key={i}
+                                className="flex-1"
+                                style={{
+                                    height: 6,
+                                    borderRadius: 9999,
+                                    background: i <= 3 ? '#fff' : 'rgba(255,255,255,.3)',
+                                }}
+                            />
+                        ))}
+                    </div>
                 </div>
             </div>
 
-            {/* 영상 미리보기 */}
-            <div className="px-4 -mt-4 mb-4">
+            {/* Live preview */}
+            <div className="px-4 mt-3.5">
                 <button
                     onClick={onOpenCamera}
-                    className="w-full bg-[#1F1E2E] rounded-2xl aspect-[16/10] relative overflow-hidden border-none cursor-pointer"
+                    className="w-full relative overflow-hidden border-none cursor-pointer"
+                    style={{
+                        background: CV.cameraBg,
+                        borderRadius: 24,
+                        aspectRatio: '16 / 10',
+                        boxShadow: SHADOW.card,
+                    }}
                 >
-                    <span className="absolute top-3 left-3 bg-[#E53935] text-white text-[10px] font-bold px-2 py-0.5 rounded-md">LIVE</span>
-                    <span className="absolute top-3 right-3 w-2 h-2 rounded-full bg-[#E53935] animate-pulse" />
+                    <span
+                        className="absolute inset-0 pointer-events-none"
+                        style={{ background: 'radial-gradient(circle at 30% 30%, rgba(239,68,68,.25), transparent 60%)' }}
+                    />
+                    <span
+                        className="absolute text-white font-extrabold"
+                        style={{
+                            top: 14, left: 14,
+                            background: CV.danger, fontSize: 10,
+                            padding: '3px 10px', borderRadius: 6, letterSpacing: '.05em',
+                        }}
+                    >
+                        ● LIVE
+                    </span>
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                         <svg width="40" height="60" viewBox="0 0 40 60" fill="none">
                             <circle cx="20" cy="10" r="6" stroke="white" strokeWidth="2"/>
@@ -56,53 +100,81 @@ function EmergencyDetail({ detection, patient, onBack, onOpenCamera }) {
                             <line x1="20" y1="36" x2="12" y2="52" stroke="white" strokeWidth="2" strokeLinecap="round"/>
                             <line x1="20" y1="36" x2="28" y2="52" stroke="white" strokeWidth="2" strokeLinecap="round"/>
                         </svg>
-                        <span className="text-white text-xs">실시간 카메라 스트림</span>
+                        <span className="text-white opacity-80" style={{ fontSize: 12 }}>실시간 카메라 스트림</span>
                     </div>
                 </button>
             </div>
 
-            {/* 감지 정보 */}
-            <div className="px-4 mb-4">
-                <h3 className="text-base font-bold text-gray-900 mb-2">감지 정보</h3>
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                    <div className="bg-[#FFE5DB] rounded-xl p-3">
-                        <p className="text-[11px] text-gray-500 m-0">감지 종류</p>
-                        <p className="text-sm font-bold text-[#C73F10] m-0 mt-0.5">낙상</p>
+            {/* detection grid */}
+            <div className="px-4 mt-3.5 grid grid-cols-2 gap-2.5">
+                {[
+                    { label: '감지 종류', value: '낙상', color: CV.dangerDeep },
+                    { label: '발생 위치', value: '거실', color: CV.fg },
+                    { label: 'LSTM 신뢰도', value: `${confidence}%`, color: CV.fg },
+                    { label: '감지 시각', value: time, color: CV.fg },
+                ].map((c) => (
+                    <div
+                        key={c.label}
+                        style={{
+                            background: '#fff',
+                            borderRadius: 16,
+                            padding: 14,
+                            boxShadow: SHADOW.card,
+                            border: '1px solid rgba(15,23,42,.04)',
+                        }}
+                    >
+                        <p
+                            className="m-0 font-bold uppercase"
+                            style={{ fontSize: 10, color: CV.fgMuted, letterSpacing: '.06em' }}
+                        >
+                            {c.label}
+                        </p>
+                        <p className="m-0 mt-1 font-extrabold" style={{ fontSize: 18, color: c.color }}>{c.value}</p>
                     </div>
-                    <div className="bg-[#FFE5DB] rounded-xl p-3">
-                        <p className="text-[11px] text-gray-500 m-0">발생 위치</p>
-                        <p className="text-sm font-bold text-gray-900 m-0 mt-0.5">거실</p>
-                    </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                    <div>
-                        <p className="text-[11px] text-gray-400 m-0">LSTM 신뢰도</p>
-                        <p className="text-sm font-bold text-gray-900 m-0 mt-0.5">{confidence}%</p>
-                    </div>
-                    <div>
-                        <p className="text-[11px] text-gray-400 m-0">감지 시각</p>
-                        <p className="text-sm font-bold text-gray-900 m-0 mt-0.5">{time}</p>
-                    </div>
-                </div>
+                ))}
             </div>
 
-            {/* 액션 버튼 */}
-            <div className="px-4 mb-2">
-                <button className="w-full bg-white text-gray-900 rounded-2xl py-3.5 font-bold text-sm border border-gray-200 cursor-pointer flex items-center justify-center gap-2">
+            {/* actions */}
+            <div className="px-4 mt-3.5 flex flex-col gap-2.5">
+                <button
+                    className="w-full cursor-pointer font-bold border-none flex items-center justify-center gap-2"
+                    style={{
+                        background: CV.dangerGrad,
+                        color: '#fff',
+                        padding: '15px 16px',
+                        borderRadius: 16,
+                        fontSize: 15,
+                        boxShadow: '0 8px 16px rgba(220,38,38,.25)',
+                        fontFamily: 'inherit',
+                    }}
+                >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                         <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"
-                              stroke="#E53935" strokeWidth="2" strokeLinejoin="round"/>
+                              stroke="#fff" strokeWidth="2" strokeLinejoin="round"/>
                     </svg>
                     119 바로 전화
                 </button>
-            </div>
-            <div className="px-4 mb-3">
-                <button className="w-full bg-[#FF6B3D] text-white rounded-2xl py-3.5 font-bold text-sm border-none cursor-pointer">
+                <button
+                    className="w-full cursor-pointer font-bold"
+                    style={{
+                        background: '#fff',
+                        color: CV.primary,
+                        padding: '15px 16px',
+                        borderRadius: 16,
+                        fontSize: 15,
+                        border: `1.5px solid ${CV.primary}`,
+                        fontFamily: 'inherit',
+                    }}
+                >
                     다른 보호자에게 알리기
                 </button>
             </div>
-            <div className="px-4 mb-6 text-center">
-                <button className="bg-transparent border-none text-gray-500 text-xs underline cursor-pointer">
+
+            <div className="text-center mt-3.5">
+                <button
+                    className="bg-transparent border-none cursor-pointer underline"
+                    style={{ color: CV.fgMuted, fontSize: 12, fontFamily: 'inherit' }}
+                >
                     오탐지로 표시
                 </button>
             </div>
@@ -110,7 +182,7 @@ function EmergencyDetail({ detection, patient, onBack, onOpenCamera }) {
     );
 }
 
-export default function HistoryPage({ patient, focus, onClearFocus, onOpenCamera }) {
+export default function HistoryPage({ patient, focus, onClearFocus, onOpenCamera, onBack }) {
     const allDetections = useStore((s) => s.detections);
     const detections = patient
         ? allDetections.filter((d) => !d.patient || d.patient.id === patient.id)
@@ -126,7 +198,6 @@ export default function HistoryPage({ patient, focus, onClearFocus, onOpenCamera
     }, [focus]);
 
     if (view === 'detail') {
-        // notification이 focus된 경우 가장 최근의 같은 타입 detection을 매핑
         const matchedDetection = current?.detectedAt
             ? current
             : allDetections.find((d) =>
@@ -138,50 +209,93 @@ export default function HistoryPage({ patient, focus, onClearFocus, onOpenCamera
             <EmergencyDetail
                 detection={matchedDetection}
                 patient={patient}
-                onBack={() => { setView('list'); onClearFocus?.(); }}
+                onBack={() => {
+                    if (focus && onBack) {
+                        onBack();
+                    } else {
+                        setView('list');
+                        onClearFocus?.();
+                    }
+                }}
                 onOpenCamera={onOpenCamera}
             />
         );
     }
 
-    const typeLabel = (t) => {
-        if (t === 'FALL') return { label: '낙상', tone: 'text-[#C73F10] bg-[#FFE5DB]' };
-        if (t === 'MEDICATION') return { label: '복약', tone: 'text-[#10B981] bg-[#E8F8F0]' };
-        return { label: '정상', tone: 'text-[#4F7CFF] bg-[#EEF4FF]' };
+    const TONE = {
+        FALL:       { label: '낙상', bg: CV.dangerTint, color: CV.dangerDeep },
+        MEDICATION: { label: '복약', bg: CV.successTint, color: CV.successText },
+        NORMAL:     { label: '정상', bg: CV.primaryTint, color: CV.primaryText },
     };
+    const typeLabel = (t) => TONE[t] || TONE.NORMAL;
 
     return (
         <div className="min-h-screen">
-            <div className="bg-[#FF6B3D] text-white px-5 pt-6 pb-7 rounded-b-3xl">
-                <h1 className="text-2xl font-bold m-0">감지 이력</h1>
-                <p className="text-xs opacity-90 m-0 mt-1">{patient?.name} 님 · 최근 7일</p>
+            {/* Hero */}
+            <div
+                className="text-white relative overflow-hidden"
+                style={{
+                    background: CV.primaryGradHero,
+                    padding: '20px 22px 28px',
+                    borderRadius: '0 0 32px 32px',
+                }}
+            >
+                <span className="absolute pointer-events-none" style={{ left: -60, bottom: -80, width: 280, height: 280, borderRadius: '50%', background: 'rgba(255,255,255,.06)' }} />
+                <span className="absolute pointer-events-none" style={{ right: -40, top: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,.07)' }} />
+
+                <div className="relative">
+                    <h1 className="m-0 mt-3 font-extrabold" style={{ fontSize: 24, letterSpacing: '-0.01em' }}>감지 이력</h1>
+                    <p className="m-0 mt-1 opacity-90" style={{ fontSize: 12 }}>
+                        {patient?.name} 님 · 최근 7일
+                    </p>
+                </div>
             </div>
 
-            <div className="px-4 -mt-4">
-                <div className="bg-white rounded-2xl p-4 shadow-sm">
+            {/* List */}
+            <div className="px-4 mt-3.5">
+                <div
+                    style={{
+                        background: '#fff',
+                        borderRadius: 20,
+                        padding: 6,
+                        boxShadow: SHADOW.card,
+                        border: '1px solid rgba(15,23,42,.04)',
+                    }}
+                >
                     {detections.length === 0 && (
-                        <p className="text-center text-sm text-gray-400 py-8">감지 이력이 없습니다</p>
+                        <p className="text-center py-10 m-0" style={{ color: CV.fgFaint, fontSize: 13 }}>감지 이력이 없습니다</p>
                     )}
-                    {detections.map((d) => {
+                    {detections.map((d, i, arr) => {
                         const t = typeLabel(d.type);
                         return (
                             <button
                                 key={d.id}
                                 onClick={() => { setCurrent(d); setView('detail'); }}
-                                className="w-full text-left bg-transparent border-none cursor-pointer py-3 border-b last:border-0 border-gray-100 flex items-center gap-3"
+                                className="w-full text-left bg-transparent border-none cursor-pointer flex items-center gap-3"
+                                style={{
+                                    padding: '14px 12px',
+                                    borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${CV.divider}`,
+                                    fontFamily: 'inherit',
+                                }}
                             >
-                                <span className={`text-xs font-bold px-2.5 py-1 rounded-md ${t.tone}`}>
+                                <span
+                                    className="font-bold"
+                                    style={{
+                                        fontSize: 11, padding: '4px 10px',
+                                        borderRadius: 9999, background: t.bg, color: t.color,
+                                    }}
+                                >
                                     {t.label}
                                 </span>
-                                <div className="flex-1">
-                                    <p className="text-sm font-semibold text-gray-900 m-0">
+                                <div className="flex-1 min-w-0">
+                                    <p className="m-0 font-bold" style={{ fontSize: 14 }}>
                                         {d.type === 'FALL' ? '낙상 의심 상황' : d.type === 'MEDICATION' ? '복약 감지됨' : '정상 동작'}
                                     </p>
-                                    <p className="text-xs text-gray-400 m-0 mt-0.5">
+                                    <p className="m-0 mt-0.5" style={{ fontSize: 11, color: CV.fgFaint }}>
                                         신뢰도 {Math.round(d.confidence * 100)}% · {new Date(d.detectedAt).toLocaleString('ko-KR')}
                                     </p>
                                 </div>
-                                <span className="text-gray-300">›</span>
+                                <span style={{ color: CV.fgFaint, fontSize: 16 }}>›</span>
                             </button>
                         );
                     })}

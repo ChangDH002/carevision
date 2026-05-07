@@ -35,6 +35,10 @@ firebase-service-account.json
 .DS_Store
 Thumbs.db
 
+# IDE (user-specific, not portable)
+.idea/
+.vscode/
+
 # Capacitor / Android 빌드 산출물
 frontend/android/app/build/
 frontend/android/build/
