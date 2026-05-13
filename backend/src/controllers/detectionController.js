@@ -28,7 +28,9 @@ const createLog = async (req, res) => {
   });
 
   // 낙상 감지 시 FCM 알림 전송
-  if (type === 'fall') {
+  // AI 서버가 'FALL' / 'fall' 어떤 케이스로 보내도 매칭되도록 정규화해서 비교한다.
+  // (이전: type === 'fall' 만 비교 → AI가 'FALL'을 보내면 알림이 누락되는 문제)
+  if (typeof type === 'string' && type.toLowerCase() === 'fall') {
     const fcmToken = log.patient.user.fcmToken;
     if (fcmToken) {
       await sendAlert(fcmToken, {

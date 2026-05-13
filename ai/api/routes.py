@@ -9,6 +9,7 @@ from typing import Optional
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from pipelines.fall_detector import fall_detector
+from pipelines import fall_detector as fall_detector_mod  # get_model_info() 접근용
 from pipelines.medication_detector import medication_detector
 from pipelines.hand_to_mouth_detector import hand_to_mouth_detector
 from pipelines.medication_scorer import init_scorer
@@ -332,17 +333,34 @@ async def test_medication_page():
 async def detect_fall(request: FallDetectRequest, background_tasks: BackgroundTasks):
     result = fall_detector.detect(request.image, request.cameraId)
 
-    if result["status"] == "emergency" and request.patientId:
+    # 알림 게이팅 — alert_triggered=True (즉 final_decision="fall_emergency") 일 때만 보호자 알림.
+    # movement_pending / fall_suspected / lying_suppressed 는 절대 알림 보내지 않음.
+    if result.get("alert_triggered") is True and request.patientId:
         background_tasks.add_task(
             notify_detection,
             patient_id=request.patientId,
             detection_type="FALL",
-            confidence=result["confidence"],
-            status=result["status"],
+            # confidence 컬럼에는 fall_probability 를 넣어 의미를 명확히 한다.
+            confidence=result.get("fall_probability", result.get("confidence", 0.0)),
+            status=result.get("status", "emergency"),
             camera_id=request.cameraId,
         )
 
+    # 응답에 현재 활성 모델 backend 짧은 태그를 첨부 — 클라이언트가 어느 백엔드의 결과인지 식별
+    info = fall_detector_mod.get_model_info()
+    result["model_backend"] = info.get("model_backend")
+    result["qa_validated"] = info.get("qa_validated")
     return result
+
+
+@router.get("/detect/model_info")
+def detect_model_info():
+    """현재 런타임에서 활성화된 낙상 모델의 backend / 경로 / shape / fallback 사유.
+
+    웹 UI 와 운영자가 'QA 에서 검증된 vB Keras 가 실제 사용 중인가' 를 즉시 확인할 수
+    있게 한다. fallback (PyTorch / 휴리스틱) 인 경우 그 사유를 명시.
+    """
+    return fall_detector_mod.get_model_info()
 
 
 @router.post("/detect/medication")
@@ -402,6 +420,11 @@ def detect_live(request: LiveDetectRequest):
     # 낙상은 별도 파이프라인
     fall_result = fall_detector.detect(img_b64, request.cameraId)
 
+    # 현재 활성 낙상 모델 backend 메타 (UI 가 'QA 검증 모델 사용 중인지' 즉시 식별)
+    fall_info = fall_detector_mod.get_model_info()
+    fall_result["model_backend"] = fall_info.get("model_backend")
+    fall_result["qa_validated"] = fall_info.get("qa_validated")
+
     return {
         "success": True,
         "medication": {
@@ -422,6 +445,7 @@ def detect_live(request: LiveDetectRequest):
         },
         "fall": fall_result,
         "model_type": medication_detector.model_type,
+        "fall_model_backend": fall_info.get("model_backend"),
     }
 
 

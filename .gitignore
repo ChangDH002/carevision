@@ -31,6 +31,10 @@ ai/training/runs/**/*_batch*.jpg
 # Firebase 서비스 계정 키 (민감 정보)
 firebase-service-account.json
 
+# QA 산출물 / 외부 영상 (대용량, 실험 결과)
+qa/results/
+qa/new_videos/
+
 # OS
 .DS_Store
 Thumbs.db

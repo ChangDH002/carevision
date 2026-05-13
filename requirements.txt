@@ -31,3 +31,4 @@ psutil==7.2.2
 # --- Visualization / Training ---
 matplotlib==3.10.8
 scipy==1.15.3
+httpx

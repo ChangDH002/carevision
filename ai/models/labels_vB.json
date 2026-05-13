@@ -1,0 +1,102 @@
+{
+  "version": "V2.1-B-5class-coarse",
+  "vB_labels": {
+    "0": "Fall",
+    "1": "Walking",
+    "2": "Lying_Down",
+    "3": "Sitting",
+    "4": "Standing_Transition"
+  },
+  "vB_label_source": {
+    "0": "HEURISTIC",
+    "1": "GROUND_TRUTH",
+    "2": "GROUND_TRUTH",
+    "3": "GROUND_TRUTH",
+    "4": "GROUND_TRUTH"
+  },
+  "original_to_vB": {
+    "0": 0,
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 0,
+    "5": 1,
+    "6": 2,
+    "7": 3,
+    "10": 4,
+    "11": 4,
+    "12": 4
+  },
+  "vB_to_original": {
+    "0": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "1": [
+      5
+    ],
+    "2": [
+      6
+    ],
+    "3": [
+      7
+    ],
+    "4": [
+      10,
+      11,
+      12
+    ]
+  },
+  "active_vB_classes": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "dropped_empty_classes": [],
+  "sequence_len": 30,
+  "stride": 15,
+  "num_features": 132,
+  "split_policy": {
+    "fall_LE2I": "stratified 70/15/15 → all remap to Fall(0)",
+    "normal_video": "train → train; test → stratified half(val/test)"
+  },
+  "counts": {
+    "fall_original_sequences": {
+      "0": 65,
+      "1": 6,
+      "3": 7,
+      "2": 16
+    },
+    "fall_vB_windows": {
+      "0": 94
+    },
+    "normal_train_vB_windows": {
+      "4": 1372,
+      "1": 941,
+      "2": 469,
+      "3": 613
+    },
+    "normal_test_vB_windows": {
+      "4": 608,
+      "1": 424,
+      "2": 208,
+      "3": 264
+    },
+    "final_train_windows": 3461,
+    "final_val_windows": 766,
+    "final_test_windows": 766,
+    "per_class_total": {
+      "0": 94,
+      "1": 1365,
+      "2": 677,
+      "3": 877,
+      "4": 1980
+    }
+  },
+  "notes": "Fall(0) 은 LE2I 세부유형 5개(0~4) 를 하나로 합친 HEURISTIC 라벨. 나머지 1~4 는 dataset_action_split 의 GROUND_TRUTH 라벨. 세부유형 오분류 위험이 큰 상황에서 안정 성능을 우선하는 coarse 버전."
+}

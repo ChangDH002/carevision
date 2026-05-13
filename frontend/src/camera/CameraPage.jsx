@@ -77,6 +77,9 @@ function LiveDetectionView({ patient, onChangePatient }) {
     const [medObjects, setMedObjects] = useState([]);
     const [fall, setFall] = useState({ status: 'idle', confidence: 0 });
     const [modelType, setModelType] = useState('-');
+    const [modelInfo, setModelInfo] = useState(null);
+        // { model_backend, model_path, version, sequence_len, num_classes, fall_class,
+        //   fallback_reason, qa_validated, ... }
     const [lastLatency, setLastLatency] = useState(0);
     const [alerts, setAlerts] = useState([]); // 상단 토스트 알림
     const [medScore, setMedScore] = useState(null);     // {taken, score, status, signals, window}
@@ -85,6 +88,23 @@ function LiveDetectionView({ patient, onChangePatient }) {
     const prevMedCount = useRef(0);
     const prevTaken = useRef(false);
     const prevVideoTime = useRef(0);
+
+    // 컴포넌트 mount 시 현재 활성 낙상 모델 backend 정보를 한 번 받아옴
+    // — UI 가 'QA 검증된 vB Keras' 가 실제 사용 중인지 즉시 보여준다.
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(`${AI_URL}/detect/model_info`);
+                if (!res.ok) return;
+                const json = await res.json();
+                if (!cancelled) setModelInfo(json);
+            } catch {
+                /* AI 서버 미기동 시 무시 — 추후 첫 detect 응답에서 갱신됨 */
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     // 감지기 상태 리셋 (루프 재시작 / 수동 리셋 공용)
     const resetDetectionState = useCallback(async () => {
@@ -301,24 +321,37 @@ function LiveDetectionView({ patient, onChangePatient }) {
                 drawOverlay(objs, w, h);
                 setLastLatency(Math.round(performance.now() - t0));
 
-                // 낙상 상태 변화 시 알림 + store 기록
-                const newStatus = json.fall?.status;
-                if (newStatus && newStatus !== prevFallStatus.current) {
-                    if (newStatus === 'emergency') {
-                        pushAlert('danger', '🚨 낙상 감지! 위급 상황');
-                        emergencyBeep();
-                        // 전역 store에 기록 → 알림/이력에 반영 + 진동/네이티브 알림
-                        store.recordDetection({
-                            type: 'FALL',
-                            confidence: json.fall?.confidence ?? 0.9,
-                            patient,
-                            extra: { location: '거실', source: 'camera' },
-                        });
-                    } else if (newStatus === 'suspected') {
-                        pushAlert('warn', '⚠️ 낙상 의심 자세');
-                    }
-                    prevFallStatus.current = newStatus;
+                // 낙상 알림 게이팅 — alert_triggered=true (backend 의 사건 latch 가 이미
+                // 최초 1회만 true 로 발화). dynamic_fall_event=true 도 추가 가드로 요구.
+                const fallObj = json.fall || {};
+                const newDecision = fallObj.final_decision || fallObj.status;
+                const dynamicEvt = fallObj.dynamic_fall_event === true;
+                const alertNow = fallObj.alert_triggered === true && dynamicEvt;
+                const prevDecision = prevFallStatus.current;
+                if (alertNow) {
+                    // 사건 latch 의 최초 알림 (또는 cooldown reminder) → 보호자 알림 + 진동 + store 기록
+                    pushAlert('danger', '🚨 낙상 감지! 위급 상황');
+                    emergencyBeep();
+                    store.recordDetection({
+                        type: 'FALL',
+                        confidence: fallObj.fall_probability ?? fallObj.confidence ?? 0.9,
+                        patient,
+                        extra: {
+                            location: '거실',
+                            source: 'camera',
+                            incident_id: fallObj.fall_incident_id || null,
+                        },
+                    });
+                } else if (newDecision !== prevDecision
+                    && newDecision === 'fall_suspected'
+                    && dynamicEvt
+                    && fallObj.fall_incident_active !== true) {
+                    // 화면 경고만 — 알림 / 진동 X. dynamic event 가 있고 아직 사건 latch 가 아닐 때만 노출.
+                    pushAlert('warn', '⚠️ 낙상 의심 — 관찰 중');
                 }
+                // movement_pending / lying_suppressed / dynamic_event=false 인 fall_* :
+                // 화면 라벨 변경만 (pushAlert 없음, beep 없음, store 기록 없음)
+                prevFallStatus.current = newDecision;
                 // 약 처음 감지되거나 개수가 늘어났을 때 알림
                 if (objs.length > prevMedCount.current) {
                     pushAlert('info', `💊 약 ${objs.length}개 감지`);
@@ -354,15 +387,50 @@ function LiveDetectionView({ patient, onChangePatient }) {
 
     useEffect(() => () => stopCamera(), []);
 
-    // 낙상 상태별 색상/텍스트
+    // 낙상 상태별 색상/라벨 — final_decision 우선, 없으면 status 로 fallback.
+    // 5-state UI:
+    //   normal              → 정상
+    //   movement_pending    → 판정 중 (알림 X)
+    //   fall_suspected      → 낙상 의심 (화면 경고만, 알림 X)
+    //   fall_emergency      → 낙상 발생 (보호자 알림 O — alert_triggered=true)
+    //   lying_suppressed    → 정상/누워 있음 (알림 X)
+    //
+    // 사건 latch: fall_incident_active=true 인 동안에는 lying_suppressed 가 와도
+    // 화면 라벨을 "낙상 발생 — 확인 필요" 로 강제 유지.
+    // Defense-in-depth: backend 가 fall_suspected/fall_emergency 를 보내도
+    // dynamic_fall_event=false 면 절대 화면에 "낙상" 라벨을 띄우지 않는다.
+    const _rawKey = fall.final_decision || fall.status;
+    const _isFallLabel = _rawKey === 'fall_suspected' || _rawKey === 'fall_emergency'
+        || _rawKey === 'emergency' || _rawKey === 'suspected';
+    let fallKey;
+    if (fall.fall_incident_active === true) {
+        // 사건 latch 활성 — 화면은 항상 낙상 발생 라벨 유지 (lying_suppressed 무시)
+        fallKey = 'fall_incident_active';
+    } else if (_isFallLabel && fall.dynamic_fall_event === false) {
+        // dynamic_event 가 없으면 fall_* 대신 판정 중 표시
+        fallKey = 'movement_pending';
+    } else {
+        fallKey = _rawKey;
+    }
     const fallMeta = {
-        emergency: { color: 'bg-red-600 text-white', label: '🚨 위급 (낙상 확정)' },
-        suspected: { color: 'bg-orange-500 text-white', label: '⚠️ 낙상 의심' },
-        caution: { color: 'bg-yellow-400 text-gray-900', label: '주의' },
-        normal: { color: 'bg-green-500 text-white', label: '정상' },
-        no_person: { color: 'bg-gray-300 text-gray-700', label: '사람 없음' },
-        idle: { color: 'bg-gray-200 text-gray-600', label: '대기 중' },
-    }[fall.status] || { color: 'bg-gray-200 text-gray-600', label: fall.status };
+        // 새 final_decision 값
+        fall_incident_active: { color: 'bg-red-700 text-white animate-pulse', label: '🚨 낙상 발생 — 확인 필요' },
+        fall_emergency:   { color: 'bg-red-600 text-white',     label: '🚨 낙상 발생' },
+        fall_suspected:   { color: 'bg-orange-500 text-white',  label: '⚠️ 낙상 의심' },
+        movement_pending: { color: 'bg-yellow-400 text-gray-900', label: '⏳ 판정 중' },
+        checking_transition: { color: 'bg-yellow-400 text-gray-900', label: '⏳ 판정 중' },
+        lying_suppressed: { color: 'bg-blue-500 text-white',    label: '🛏 누워 있음' },
+        normal:           { color: 'bg-green-500 text-white',   label: '정상' },
+        warmup:           { color: 'bg-gray-300 text-gray-700', label: '준비 중' },
+        no_person:        { color: 'bg-gray-300 text-gray-700', label: '사람 없음' },
+        // legacy status 값 (fallback — final_decision 미존재 시)
+        emergency:        { color: 'bg-red-600 text-white',     label: '🚨 낙상 발생' },
+        suspected:        { color: 'bg-orange-500 text-white',  label: '⚠️ 낙상 의심' },
+        checking:         { color: 'bg-yellow-400 text-gray-900', label: '⏳ 판정 중' },
+        caution:          { color: 'bg-yellow-300 text-gray-900', label: '주의' },
+        buffering:        { color: 'bg-gray-300 text-gray-700', label: '준비 중' },
+        idle:             { color: 'bg-gray-200 text-gray-600', label: '대기 중' },
+    }[fallKey] || { color: 'bg-gray-200 text-gray-600', label: fallKey || '대기 중' };
 
     return (
         <div className="min-h-screen bg-slate-100 max-w-[480px] mx-auto font-sans relative">
@@ -705,6 +773,42 @@ function LiveDetectionView({ patient, onChangePatient }) {
                     </div>
                 )}
 
+                {/* 활성 낙상 모델 backend 배지 — QA 검증 모델(vB Keras) 인지 즉시 식별 */}
+                {modelInfo && (
+                    <div
+                        className={`mt-3 rounded-xl p-3 border ${
+                            modelInfo.qa_validated
+                                ? 'bg-green-50 border-green-200'
+                                : 'bg-amber-50 border-amber-300'
+                        }`}
+                        title={modelInfo.fallback_reason || '현재 활성 낙상 모델'}
+                    >
+                        <div className="flex items-center gap-2">
+                            <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                                    modelInfo.qa_validated
+                                        ? 'bg-green-600 text-white'
+                                        : 'bg-amber-600 text-white'
+                                }`}
+                            >
+                                {modelInfo.qa_validated ? 'QA 검증' : '폴백'}
+                            </span>
+                            <span className="text-xs font-semibold text-gray-800">
+                                낙상 모델: {modelInfo.model_backend}
+                            </span>
+                            <span className="text-[10px] text-gray-500 ml-auto">
+                                seq={modelInfo.sequence_len ?? '-'} · cls={modelInfo.num_classes ?? '-'}
+                                {modelInfo.fall_class != null && ` · fall=${modelInfo.fall_class}`}
+                            </span>
+                        </div>
+                        {!modelInfo.qa_validated && modelInfo.fallback_reason && (
+                            <p className="text-[10px] text-amber-800 m-0 mt-1 leading-snug">
+                                ⚠ {modelInfo.fallback_reason}
+                            </p>
+                        )}
+                    </div>
+                )}
+
                 {/* 감지 상태 패널 */}
                 <div className="mt-3 grid grid-cols-2 gap-2">
                     <div className="bg-white rounded-xl p-3 border border-gray-200">
@@ -721,11 +825,135 @@ function LiveDetectionView({ patient, onChangePatient }) {
                         <p className="text-lg font-bold text-gray-900 m-0">
                             {fallMeta.label}
                         </p>
-                        <p className="text-[10px] text-gray-400 m-0 mt-1">
-                            신뢰도 {((fall.confidence || 0) * 100).toFixed(0)}%
+                        {/*
+                            * 낙상 확률 (fall_probability)        : 모델이 'Fall' 클래스에 부여한 raw softmax 확률
+                            * 판정 신뢰도 (confidence)            : 모델이 자신의 top prediction 에 대해 얼마나 확신하는지
+                            *                                       (top class 가 Fall 이 아닐 수도 있음 — Lying_Down 등)
+                        */}
+                        <p className="text-[10px] text-gray-500 m-0 mt-1 leading-tight">
+                            낙상 확률 {(((fall.fall_probability ?? 0)) * 100).toFixed(0)}%
+                            <span className="text-gray-400">
+                                {' · '}판정 신뢰도 {((fall.confidence ?? 0) * 100).toFixed(0)}%
+                            </span>
                         </p>
+                        {fall.model_prediction && (
+                            <p className="text-[10px] text-gray-400 m-0 mt-0.5">
+                                예측: {fall.model_prediction}
+                                {modelInfo?.model_backend && (
+                                    <span> · {modelInfo.model_backend}</span>
+                                )}
+                            </p>
+                        )}
                     </div>
                 </div>
+
+                {/* 낙상 사건 active 배너 — 명시적 reset 까지 유지 */}
+                {fall.fall_incident_active === true && (
+                    <div className="mt-2 rounded-lg p-3 border border-red-300 bg-red-100 flex items-start gap-2">
+                        <span className="text-lg">🚨</span>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-bold text-red-800 m-0 leading-tight">
+                                낙상 발생 — 확인 필요
+                            </p>
+                            <p className="text-[10px] text-red-700 m-0 mt-0.5 leading-tight">
+                                자동으로 정상/누움 상태로 돌아가지 않습니다. 보호자 확인 후 아래 버튼으로 해제하세요.
+                            </p>
+                            {fall.fall_incident_id && (
+                                <p className="text-[9px] text-red-600 m-0 mt-0.5 break-all">
+                                    incident_id: {fall.fall_incident_id}
+                                </p>
+                            )}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={resetDetectionState}
+                            className="bg-white text-red-700 border border-red-400 rounded-md px-2 py-1 text-[11px] font-semibold cursor-pointer shrink-0 hover:bg-red-50"
+                        >
+                            사건 해제
+                        </button>
+                    </div>
+                )}
+
+                {/* 낙상 디버그 스트립 — 테스트 케이스(서있음/걷기/앉기/눕기/자기/낙상) 구분용 */}
+                {fall.final_decision && (
+                    <div
+                        className={`mt-2 rounded-lg p-2 border text-[10px] ${
+                            fall.final_decision === 'fall_emergency'
+                                ? 'bg-red-50 border-red-200'
+                                : fall.final_decision === 'fall_suspected'
+                                    ? 'bg-orange-50 border-orange-200'
+                                    : fall.final_decision === 'movement_pending' || fall.final_decision === 'checking_transition'
+                                        ? 'bg-yellow-50 border-yellow-300'
+                                        : fall.final_decision === 'lying_suppressed'
+                                            ? 'bg-blue-50 border-blue-200'
+                                            : 'bg-slate-50 border-slate-200'
+                        }`}
+                    >
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-gray-700 leading-snug">
+                            <span><b>final</b>: {fall.final_decision}</span>
+                            <span><b>alert</b>: {fall.alert_triggered ? '🔔 ON' : 'off'}</span>
+                            <span>
+                                <b>dyn_event</b>:{' '}
+                                <span className={fall.dynamic_fall_event ? 'text-red-700 font-semibold' : 'text-gray-500'}>
+                                    {fall.dynamic_fall_event ? '✓' : '✗'}
+                                </span>
+                            </span>
+                            <span><b>P(Fall)</b>: {((fall.fall_probability ?? 0) * 100).toFixed(1)}%</span>
+                            <span><b>conf</b>: {((fall.confidence ?? 0) * 100).toFixed(1)}%</span>
+                            <span><b>pred</b>: {fall.model_prediction ?? '-'}</span>
+                            <span><b>drop</b>: {(fall.vertical_drop ?? 0).toFixed(3)}</span>
+                            <span><b>motion</b>: {(fall.motion_score ?? 0).toFixed(4)}</span>
+                            <span><b>Δθ</b>: {(fall.torso_angle_change ?? 0).toFixed(1)}°</span>
+                            <span><b>seq</b>: {fall.consecutive_fall_windows ?? 0}</span>
+                            {(fall.pending_windows ?? 0) > 0 && (
+                                <span><b>to_emerg</b>: {fall.pending_windows}</span>
+                            )}
+                            {fall.incident_state && (
+                                <span>
+                                    <b>incident</b>:{' '}
+                                    <span className={fall.incident_state === 'active' ? 'text-red-700 font-semibold' : 'text-gray-500'}>
+                                        {fall.incident_state}
+                                    </span>
+                                </span>
+                            )}
+                            {fall.latch_allowed !== undefined && (
+                                <span>
+                                    <b>latch</b>:{' '}
+                                    <span className={fall.latch_allowed ? 'text-red-700 font-semibold' : 'text-gray-500'}>
+                                        {fall.latch_allowed ? 'allowed' : 'blocked'}
+                                    </span>
+                                </span>
+                            )}
+                        </div>
+                        {fall.latch_block_reason && (
+                            <p className="text-[10px] text-amber-700 m-0 mt-1 leading-tight">
+                                ⛔ latch_blocked: {fall.latch_block_reason}
+                            </p>
+                        )}
+                        {fall.dynamic_gate_reason && (
+                            <p className={`text-[10px] m-0 mt-1 leading-tight ${
+                                fall.dynamic_fall_event ? 'text-red-700' : 'text-gray-600'
+                            }`}>
+                                {fall.dynamic_fall_event ? '⚡ dynamic_event:' : '○ static_state:'} {fall.dynamic_gate_reason}
+                            </p>
+                        )}
+                        {fall.suppression_reason && (
+                            <p className="text-[10px] text-blue-700 m-0 mt-1 leading-tight">
+                                ⓘ suppress: {fall.suppression_reason}
+                            </p>
+                        )}
+                        {fall.transition_state && (
+                            <p className="text-[10px] text-yellow-800 m-0 mt-1 leading-tight">
+                                ⏳ transition: {fall.transition_state}
+                            </p>
+                        )}
+                        {fall.alert_reason && (
+                            <p className="text-[10px] text-red-700 m-0 mt-1 leading-tight">
+                                🔔 alert: {fall.alert_reason}
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 {/* 복약 객체 리스트 */}
                 {medObjects.length > 0 && (
