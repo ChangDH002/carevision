@@ -417,6 +417,12 @@ def detect_live(request: LiveDetectRequest):
     # 복약 스코어링 (내부에서 medication_detector + hand_to_mouth_detector 호출)
     score_result = medication_scorer.update(img_b64, request.cameraId)
 
+    # 손→입(1안) 풍부 결과: 스코어러가 방금 호출한 detector 의 캐시를 읽는다.
+    # (이중 추론 없음 — detect() 가 last_result 에 저장해 둠)
+    h2m_detail = {}
+    if hand_to_mouth_detector is not None:
+        h2m_detail = hand_to_mouth_detector.last_result.get(request.cameraId, {}) or {}
+
     # 낙상은 별도 파이프라인
     fall_result = fall_detector.detect(img_b64, request.cameraId)
 
@@ -431,11 +437,31 @@ def detect_live(request: LiveDetectRequest):
             "detected": len(score_result["medication_objects"]) > 0,
             "objects": score_result["medication_objects"],
         },
+        # 손→입(1안) 행동 후보 신호 — 복약 완료 확정 아님. taken 을 만들지 않는다.
         "hand_to_mouth": {
+            # 기존 키 (호환 유지: scorer EMA 기반)
             "detected": bool(score_result["signals"]["hand_to_mouth_prob"]
                              >= medication_scorer.MOTION_POS_THRESHOLD),
             "confidence": score_result["signals"]["hand_to_mouth_prob"],
-            "status": score_result["signals"]["hand_status"],
+            "status": h2m_detail.get("status", score_result["signals"]["hand_status"]),
+            # 신규 풍부 필드 (additive — 1안 손→입 행동 감지)
+            "final_detected": h2m_detail.get("final_detected", False),
+            "detection_source": h2m_detail.get("detection_source", "none"),
+            "lstm_detected": h2m_detail.get("lstm_detected", False),
+            "lstm_confidence": h2m_detail.get("lstm_confidence", 0.0),
+            "rule_detected": h2m_detail.get("rule_detected", False),
+            "rule_distance": h2m_detail.get("rule_distance"),
+            "rule_threshold": h2m_detail.get("rule_threshold"),
+            "rule_very_close": h2m_detail.get("rule_very_close", False),
+            "motion_bypassed": h2m_detail.get("motion_bypassed", False),
+            "block_reason": h2m_detail.get("block_reason"),
+            "consecutive_frames": h2m_detail.get("consecutive_frames", 0),
+            "lstm_consecutive": h2m_detail.get("lstm_consecutive", 0),
+            "motion_accepted": h2m_detail.get("motion_accepted", False),
+            "motion_score": h2m_detail.get("motion_score", 0.0),
+            "has_hand": h2m_detail.get("has_hand", False),
+            "has_mouth": h2m_detail.get("has_mouth", False),
+            "reason": h2m_detail.get("reason", ""),
         },
         "medication_score": {
             "taken": score_result["taken"],

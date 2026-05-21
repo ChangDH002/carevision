@@ -731,39 +731,129 @@ function LiveDetectionView({ patient, onChangePatient }) {
                     </div>
                 )}
 
-                {/* 손→입 LSTM 카드 */}
+                {/* 손→입 행동 감지 (1안) — 복약 행동 후보 신호.
+                    "복약 완료"가 아니라 "손→입 행동" 으로만 표현한다. */}
                 {handMouth && (
                     <div className="mt-3 bg-white rounded-xl p-3 border border-gray-200">
                         <div className="flex justify-between items-center mb-2">
-                            <p className="text-[12px] font-bold text-gray-800 m-0">✋ 손→입 동작 (LSTM)</p>
+                            <p className="text-[12px] font-bold text-gray-800 m-0">
+                                ✋ 손→입 행동 감지 (LSTM + 거리규칙)
+                            </p>
                             <span
                                 className={`text-[10px] font-bold rounded px-2 py-0.5 ${
-                                    handMouth.detected
-                                        ? 'bg-red-100 text-red-700'
-                                        : (handMouth.status || '').includes('suspect')
-                                        ? 'bg-orange-100 text-orange-700'
+                                    handMouth.final_detected
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : handMouth.status === 'pending_near_mouth'
+                                        ? 'bg-yellow-100 text-yellow-700'
+                                        : handMouth.status === 'insufficient_landmarks'
+                                        ? 'bg-gray-100 text-gray-600'
+                                        : handMouth.status === 'motion_not_accepted'
+                                        ? 'bg-blue-100 text-blue-700'
                                         : 'bg-gray-100 text-gray-600'
                                 }`}
                             >
-                                {handMouth.status || '-'}
+                                {handMouth.final_detected
+                                    ? '복약 유사 동작 후보'
+                                    : handMouth.status === 'pending_near_mouth'
+                                    ? '복약 유사 동작 후보(근접·확정 대기)'
+                                    : handMouth.status || '-'}
                             </span>
                         </div>
+
+                        {handMouth.final_detected && (
+                            <p className="text-[11px] font-semibold text-amber-700 m-0 mb-2">
+                                손→입 행동 감지 · 복약 완료 확정 아님
+                                {handMouth.motion_bypassed
+                                    ? ' (입 근접으로 모션조건 완화)'
+                                    : ''}
+                            </p>
+                        )}
+                        {!handMouth.final_detected && handMouth.block_reason && (
+                            <p className="text-[10px] text-gray-500 m-0 mb-2">
+                                미확정 사유:{' '}
+                                <b className="text-gray-700">
+                                    {handMouth.block_reason}
+                                </b>
+                                {handMouth.status === 'pending_near_mouth'
+                                    ? ' · 확정 아님, 보호자/사용자 확인 필요'
+                                    : ''}
+                            </p>
+                        )}
+
+                        {/* LSTM 확률 게이지 */}
                         <div className="flex justify-between text-[10px] text-gray-500 mb-1">
-                            <span>확률</span>
+                            <span>LSTM 확률</span>
                             <span className="font-mono">
-                                {((handMouth.confidence ?? 0) * 100).toFixed(1)}%
+                                {((handMouth.lstm_confidence ?? handMouth.confidence ?? 0) * 100).toFixed(1)}%
+                                {handMouth.lstm_detected ? ' ✓' : ''}
                             </span>
                         </div>
                         <div className="w-full h-2 bg-gray-100 rounded">
                             <div
                                 className={`h-2 rounded transition-all ${
-                                    (handMouth.confidence ?? 0) >= 0.5 ? 'bg-red-500' : 'bg-purple-400'
+                                    handMouth.lstm_detected ? 'bg-amber-500' : 'bg-purple-400'
                                 }`}
                                 style={{
-                                    width: `${Math.min(100, (handMouth.confidence ?? 0) * 100)}%`,
+                                    width: `${Math.min(100, (handMouth.lstm_confidence ?? handMouth.confidence ?? 0) * 100)}%`,
                                 }}
                             />
                         </div>
+
+                        {/* 거리 규칙 / 디버그 그리드 */}
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-gray-500 mt-3">
+                            <span>
+                                감지 소스:{' '}
+                                <b className="text-gray-700">
+                                    {handMouth.detection_source ?? 'none'}
+                                </b>
+                            </span>
+                            <span>
+                                거리규칙:{' '}
+                                <b className={handMouth.rule_detected ? 'text-amber-700' : 'text-gray-500'}>
+                                    {handMouth.rule_detected ? '감지' : '미감지'}
+                                </b>
+                            </span>
+                            <span>
+                                손끝-입 거리:{' '}
+                                <span className="font-mono">
+                                    {handMouth.rule_distance == null
+                                        ? '-'
+                                        : handMouth.rule_distance.toFixed(3)}
+                                    {handMouth.rule_threshold != null
+                                        ? ` / ${handMouth.rule_threshold}`
+                                        : ''}
+                                </span>
+                            </span>
+                            <span>
+                                연속 프레임:{' '}
+                                <span className="font-mono">
+                                    {handMouth.consecutive_frames ?? 0}
+                                </span>
+                            </span>
+                            <span>
+                                motion:{' '}
+                                <b className={handMouth.motion_accepted ? 'text-green-700' : 'text-blue-700'}>
+                                    {handMouth.motion_accepted ? '인정' : '부족'}
+                                </b>
+                            </span>
+                            <span>
+                                landmark:{' '}
+                                <span className="font-mono">
+                                    손{handMouth.has_hand ? '✓' : '✗'} 입
+                                    {handMouth.has_mouth ? '✓' : '✗'}
+                                </span>
+                            </span>
+                        </div>
+
+                        {handMouth.reason && (
+                            <p className="text-[10px] text-gray-500 m-0 mt-2 leading-snug">
+                                ⓘ {handMouth.reason}
+                            </p>
+                        )}
+                        <p className="text-[9px] text-gray-400 m-0 mt-1">
+                            ※ 손→입 행동은 복약 가능성 행동 신호입니다. 복약 완료는
+                            스케줄·사용자 확인과 결합해 백엔드/프론트가 판단합니다.
+                        </p>
                     </div>
                 )}
 
